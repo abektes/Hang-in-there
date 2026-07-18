@@ -40,9 +40,12 @@ export const designers = [
 export const featuredBadge = {
   title: '10 min break',
   weekLabel: 'AI share-out',
-  name: 'Weekly designer',
-  role: 'What I made with AI',
+  name: 'Ahmet Bektes',
+  role: 'Product Design',
+  department: 'Design',
+  badgeId: '042',
   slackImage: '/weeks/current.png',
+  logoImage: '/elsevier-logo.png',
 }
 
 export const weekProgram = [

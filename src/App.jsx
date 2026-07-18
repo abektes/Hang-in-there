@@ -15,13 +15,14 @@ export default function App() {
       weekLabel: featuredBadge.weekLabel,
       name: designer.name,
       role: designer.role,
+      slackImage: featuredBadge.slackImage,
     })
   }
 
   return (
     <div className="page">
       <header className="site-header">
-        <p className="site-label">UX Showcase</p>
+        <p className="site-label">10 min break</p>
         <nav className="site-nav" aria-label="Page sections">
           <a href="#badge">Badge</a>
           <a href="#designers">Designers</a>
@@ -32,13 +33,13 @@ export default function App() {
       <main>
         <section id="badge" className="hero">
           <div className="hero-stage">
-            <h1 className="hero-title">Design team showcase</h1>
+            <h1 className="hero-title">10 min break</h1>
             <p className="hero-lead">
-              Meet the designers behind this week&apos;s work. Grab the badge,
+              This week&apos;s share-out — what we made with AI. Grab the badge,
               browse the roster, and follow the program day by day.
             </p>
 
-            <div className="hero-badge" aria-label="Interactive 3D event badge">
+            <div className="hero-badge" aria-label="Interactive 3D weekly badge">
               <BadgeScene badgeTexture={badgeTexture} />
             </div>
           </div>
@@ -71,7 +72,7 @@ export default function App() {
       </main>
 
       <footer className="site-footer">
-        <p>UX Showcase · Updated weekly</p>
+        <p>10 min break · Updated weekly</p>
       </footer>
     </div>
   )

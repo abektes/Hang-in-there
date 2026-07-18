@@ -71,27 +71,115 @@ function drawMinimalBadge(ctx, { title, weekLabel, name, role }) {
   ctx.font = '500 22px "Inter", sans-serif'
   ctx.fillStyle = '#6b6b6b'
   ctx.textAlign = 'center'
-  ctx.fillText('UX SHOWCASE', W / 2, 920)
+  ctx.fillText('10 MIN BREAK', W / 2, 920)
+}
+
+function coverImage(ctx, img, x, y, w, h) {
+  const scale = Math.max(w / img.width, h / img.height)
+  const dw = img.width * scale
+  const dh = img.height * scale
+  const dx = x + (w - dw) / 2
+  const dy = y + (h - dh) / 2
+  ctx.drawImage(img, dx, dy, dw, dh)
+}
+
+/** Draw into a panel, horizontally mirrored (tag.glb card UVs are mirrored). */
+function withMirror(ctx, x, y, w, h, draw) {
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(x, y, w, h)
+  ctx.clip()
+  ctx.translate(x + w, y)
+  ctx.scale(-1, 1)
+  draw(ctx, w, h)
+  ctx.restore()
+}
+
+/**
+ * tag.glb expects a front|back atlas (left = front, right = back),
+ * matching textures like public/elsevier_badge_texture.png.
+ */
+function drawSlackAtlas(ctx, img, { weekLabel }) {
+  const half = 1024
+
+  withMirror(ctx, 0, 0, half, half, (c, w, h) => {
+    coverImage(c, img, 0, 0, w, h)
+  })
+
+  withMirror(ctx, half, 0, half, half, (c, w, h) => {
+    c.fillStyle = '#111111'
+    c.fillRect(0, 0, w, h)
+    c.fillStyle = '#fafafa'
+    c.font = '600 48px "Inter", sans-serif'
+    c.textAlign = 'center'
+    c.textBaseline = 'middle'
+    c.fillText('10 min break', w / 2, h / 2 - 24)
+    c.font = '400 32px "Inter", sans-serif'
+    c.fillStyle = '#a3a3a3'
+    c.fillText(weekLabel || 'AI share-out', w / 2, h / 2 + 28)
+  })
+}
+
+function configureTexture(tex) {
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.flipY = false
+  tex.anisotropy = 16
+  tex.needsUpdate = true
+  return tex
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.onload = () => resolve(image)
+    image.onerror = reject
+    image.src = src
+  })
 }
 
 export function useBadgeTexture(badge) {
   const [texture, setTexture] = useState(null)
 
   useEffect(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 1024
-    canvas.height = 1024
-    const ctx = canvas.getContext('2d')
+    let cancelled = false
+    let tex = null
 
-    drawMinimalBadge(ctx, badge)
+    async function build() {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
 
-    const tex = new THREE.CanvasTexture(canvas)
-    tex.colorSpace = THREE.SRGBColorSpace
-    tex.flipY = false
-    tex.anisotropy = 16
-    tex.needsUpdate = true
-    setTexture(tex)
-  }, [badge.title, badge.weekLabel, badge.name, badge.role])
+      if (badge.slackImage) {
+        try {
+          const img = await loadImage(badge.slackImage)
+          if (cancelled) return
+          canvas.width = 2048
+          canvas.height = 1024
+          drawSlackAtlas(ctx, img, badge)
+        } catch {
+          if (cancelled) return
+          canvas.width = 1024
+          canvas.height = 1024
+          withMirror(ctx, 0, 0, 1024, 1024, (c) => drawMinimalBadge(c, badge))
+        }
+      } else {
+        canvas.width = 1024
+        canvas.height = 1024
+        withMirror(ctx, 0, 0, 1024, 1024, (c) => drawMinimalBadge(c, badge))
+      }
+
+      if (cancelled) return
+      tex = configureTexture(new THREE.CanvasTexture(canvas))
+      setTexture(tex)
+    }
+
+    build()
+
+    return () => {
+      cancelled = true
+      tex?.dispose()
+    }
+  }, [badge])
 
   return texture
 }

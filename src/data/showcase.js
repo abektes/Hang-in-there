@@ -38,10 +38,11 @@ export const designers = [
 ]
 
 export const featuredBadge = {
-  title: 'UX Showcase',
-  weekLabel: 'Jun 9 – 13',
-  name: 'Maya Chen',
-  role: 'Product Design Lead',
+  title: '10 min break',
+  weekLabel: 'AI share-out',
+  name: 'Weekly designer',
+  role: 'What I made with AI',
+  slackImage: '/weeks/current.png',
 }
 
 export const weekProgram = [

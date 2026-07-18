@@ -29,8 +29,25 @@ function shiftPosition([x, y, z], embedded) {
   return [x + EMBEDDED_ANCHOR[0], y + EMBEDDED_ANCHOR[1], z + EMBEDDED_ANCHOR[2]]
 }
 
+function usePrefersReducedMotion() {
+  const [reduceMotion, setReduceMotion] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const onChange = () => setReduceMotion(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return reduceMotion
+}
+
 export default function PhysicsShowcase({ badgeTexture, variant = 'light', embedded = false }) {
   const theme = themes[variant] ?? themes.light
+  const reduceMotion = usePrefersReducedMotion()
 
   return (
     <Canvas
@@ -43,7 +60,12 @@ export default function PhysicsShowcase({ badgeTexture, variant = 'light', embed
       {embedded && <EmbeddedRig />}
       <ambientLight intensity={Math.PI * 0.55} />
       <Physics interpolate gravity={[0, -40, 0]} timeStep={1 / 60}>
-        <Band badgeTexture={badgeTexture} theme={theme} embedded={embedded} />
+        <Band
+          badgeTexture={badgeTexture}
+          theme={theme}
+          embedded={embedded}
+          reduceMotion={reduceMotion}
+        />
       </Physics>
 
       <Environment blur={0.75}>
@@ -59,13 +81,16 @@ export default function PhysicsShowcase({ badgeTexture, variant = 'light', embed
 function EmbeddedRig() {
   const { camera } = useThree()
   useEffect(() => {
-    camera.position.set(-0.65, -0.55, 13.5)
+    // Hang point is at EMBEDDED_ANCHOR; card settles ~2–3 units below
+    const focusY = EMBEDDED_ANCHOR[1] - 2.35
+    camera.position.set(0.15, focusY, 13.5)
+    camera.lookAt(EMBEDDED_ANCHOR[0], focusY, 0)
     camera.updateProjectionMatrix()
   }, [camera])
   return null
 }
 
-function Band({ badgeTexture, theme, embedded = false, maxSpeed = 50, minSpeed = 0 }) {
+function Band({ badgeTexture, theme, embedded = false, reduceMotion = false, maxSpeed = 50, minSpeed = 0 }) {
   const band = useRef()
   const clipMesh = useRef()
   const fixed = useRef()
@@ -73,12 +98,34 @@ function Band({ badgeTexture, theme, embedded = false, maxSpeed = 50, minSpeed =
   const j2 = useRef()
   const j3 = useRef()
   const card = useRef()
-  const vec = new THREE.Vector3()
-  const ang = new THREE.Vector3()
-  const rot = new THREE.Vector3()
-  const dir = new THREE.Vector3()
+  const impulseApplied = useRef(false)
+  const vec = useMemo(() => new THREE.Vector3(), [])
+  const ang = useMemo(() => new THREE.Vector3(), [])
+  const rot = useMemo(() => new THREE.Vector3(), [])
+  const dir = useMemo(() => new THREE.Vector3(), [])
 
-  const segmentProps = { type: 'dynamic', canSleep: true, colliders: false, angularDamping: 4, linearDamping: 4 }
+  const segmentProps = useMemo(
+    () => ({
+      type: 'dynamic',
+      canSleep: true,
+      colliders: false,
+      angularDamping: reduceMotion ? 8 : 4,
+      linearDamping: reduceMotion ? 8 : 4,
+    }),
+    [reduceMotion]
+  )
+
+  const cardProps = useMemo(
+    () => ({
+      type: 'dynamic',
+      canSleep: reduceMotion,
+      colliders: false,
+      angularDamping: reduceMotion ? 8 : 2.2,
+      linearDamping: reduceMotion ? 8 : 2.2,
+    }),
+    [reduceMotion]
+  )
+
   const { nodes, materials } = useGLTF('https://assets.vercel.com/image/upload/contentful/image/e5382hct74si/5huRVDzcoDwnbgrKUo1Lzs/53b6dd7d6b4ffcdbd338fa60265949e1/tag.glb')
   const cardScaleY = 1.25
 
@@ -108,11 +155,8 @@ function Band({ badgeTexture, theme, embedded = false, maxSpeed = 50, minSpeed =
   const [hovered, hover] = useState(false)
 
   useEffect(() => {
-    if (!badgeTexture) return
-    badgeTexture.flipY = false
-    badgeTexture.anisotropy = 16
-    badgeTexture.needsUpdate = true
-  }, [badgeTexture])
+    impulseApplied.current = false
+  }, [reduceMotion])
 
   useRopeJoint(fixed, j1, [[0, 0, 0], [0, 0, 0], 1])
   useRopeJoint(j1, j2, [[0, 0, 0], [0, 0, 0], 1])
@@ -120,14 +164,14 @@ function Band({ badgeTexture, theme, embedded = false, maxSpeed = 50, minSpeed =
   useSphericalJoint(j3, card, [[0, 0, 0], [0, 1.5, 0]])
 
   useEffect(() => {
-    if (hovered) {
+    if (hovered && !reduceMotion) {
       document.body.style.cursor = dragged ? 'grabbing' : 'grab'
       return () => { document.body.style.cursor = 'auto' }
     }
-  }, [hovered, dragged])
+  }, [hovered, dragged, reduceMotion])
 
   useFrame((state, delta) => {
-    if (dragged) {
+    if (dragged && !reduceMotion) {
       vec.set(state.pointer.x, state.pointer.y, 0.5).unproject(state.camera)
       dir.copy(vec).sub(state.camera.position).normalize()
       vec.add(dir.multiplyScalar(state.camera.position.length()))
@@ -136,6 +180,11 @@ function Band({ badgeTexture, theme, embedded = false, maxSpeed = 50, minSpeed =
     }
 
     if (fixed.current && band.current && j3.current && j2.current && j1.current && card.current) {
+      if (!reduceMotion && !impulseApplied.current) {
+        card.current.applyImpulse({ x: 0.35, y: 0, z: 0.15 }, true)
+        impulseApplied.current = true
+      }
+
       ;[j1, j2].forEach((ref) => {
         if (!ref.current) return
         if (!ref.current.lerped) ref.current.lerped = new THREE.Vector3().copy(ref.current.translation())
@@ -174,14 +223,19 @@ function Band({ badgeTexture, theme, embedded = false, maxSpeed = 50, minSpeed =
       <RigidBody position={layout.j3} ref={j3} {...segmentProps}>
         <BallCollider args={[0.1]} collisionGroups={ROPE_COLLISION} />
       </RigidBody>
-      <RigidBody position={layout.card} ref={card} {...segmentProps} type={dragged ? 'kinematicPosition' : 'dynamic'}>
+      <RigidBody position={layout.card} ref={card} {...cardProps} type={dragged && !reduceMotion ? 'kinematicPosition' : 'dynamic'}>
         <group
           scale={2.25}
           position={[0, -0.95, -0.05]}
-          onPointerOver={() => hover(true)}
+          onPointerOver={() => !reduceMotion && hover(true)}
           onPointerOut={() => hover(false)}
-          onPointerUp={(e) => (e.target.releasePointerCapture(e.pointerId), drag(false))}
+          onPointerUp={(e) => {
+            if (reduceMotion) return
+            e.target.releasePointerCapture(e.pointerId)
+            drag(false)
+          }}
           onPointerDown={(e) => {
+            if (reduceMotion) return
             e.target.setPointerCapture(e.pointerId)
             drag(new THREE.Vector3().copy(e.point).sub(vec.copy(card.current.translation())))
           }}>

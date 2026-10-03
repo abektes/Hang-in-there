@@ -1,16 +1,31 @@
-# React + Vite
+# Hang In There
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A small badge maker for weekly AI share-outs. Customize a swinging 3D lanyard badge, download the face, or hang a live embed on any page.
 
-Currently, two official plugins are available:
+**Live idea:** edit name, role, photo, logo, surface, and lanyard — then swing it.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- React + Vite
+- Three.js / React Three Fiber / Rapier
+- MIT License · [Ahmet Bektes](https://github.com/abektes)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Run locally
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm test
+npm run build
+```
+
+## Embed
+
+Open the app, customize a badge, then copy the iframe snippet from the embed panel. Photo and logo stay in the browser unless you share a live embed link (encoded in the URL hash).
+
+## Source
+
+[github.com/abektes/Hang-in-there](https://github.com/abektes/Hang-in-there)

@@ -28,7 +28,17 @@ function BadgeMaker() {
           <span className="site-mark" aria-hidden="true" />
           <p className="site-label">Hang In There</p>
         </div>
-        <p className="site-meta">Badges for the weekly AI share-out</p>
+        <div className="site-nav">
+          <p className="site-meta">Badges for the weekly AI share-out</p>
+          <a
+            className="site-link"
+            href="https://github.com/abektes/Hang-in-there"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+        </div>
       </header>
 
       <main className="badge-main">
@@ -58,7 +68,17 @@ function BadgeMaker() {
       </main>
 
       <footer className="site-footer">
-        <p>No lanyards were tangled in the making of this badge.</p>
+        <p>
+          Made by Ahmet Bektes ·{' '}
+          <a
+            className="site-link"
+            href="https://github.com/abektes/Hang-in-there"
+            target="_blank"
+            rel="noreferrer"
+          >
+            GitHub
+          </a>
+        </p>
         <p className="site-footer-hint">Your photo and logo stay in your browser, unless you share a live embed link.</p>
       </footer>
     </div>

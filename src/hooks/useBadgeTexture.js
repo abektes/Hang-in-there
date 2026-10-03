@@ -1,151 +1,64 @@
 import * as THREE from 'three'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { createBadgeCanvas, loadImage } from '../utils/badgeTexture'
 
-const ELSEVIER_ORANGE = '#FF6C00'
-const ELSEVIER_NAVY = '#001E3C'
-const ELSEVIER_MUTED = '#5B6B7A'
-
-function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const image = new Image()
-    image.crossOrigin = 'anonymous'
-    image.onload = () => resolve(image)
-    image.onerror = reject
-    image.src = src
-  })
-}
-
-function coverImage(ctx, img, x, y, w, h) {
-  const scale = Math.max(w / img.width, h / img.height)
-  const dw = img.width * scale
-  const dh = img.height * scale
-  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
-}
-
-/**
- * tag.glb card UV with flipY=false:
- *   V=0 is the TOP of the image
- *   Front → left half  (U 0–0.5,  V 0–0.755)
- *   Back  → right half (U 0.5–1, V 0–0.755)
- */
-function faceRect(side) {
-  const W = 1024
-  const half = W / 2
-  const h = Math.round(W * 0.755)
-  return {
-    x: side === 'back' ? half : 0,
-    y: 0,
-    w: half,
-    h,
-  }
-}
-
-function drawFace(ctx, photo, logo, badge, panel) {
-  const { name = 'Guest', role = 'Product Design' } = badge
-  const { x, y, w, h } = panel
-
-  // Equal inset so logo isn't crushed into the shaded rim
-  const padX = 40
-  const padY = 40
-
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(x, y, w, h)
-
-  // Logo — top-right, nudged 20px down from the top margin
-  let logoBottom = y + padY + 20
-  if (logo) {
-    const boxW = 200
-    const boxH = 108
-    const scale = Math.min(boxW / logo.width, boxH / logo.height)
-    const dw = logo.width * scale
-    const dh = logo.height * scale
-    const logoX = x + w - padX - dw + 40
-    const logoY = y + padY + 20
-    ctx.drawImage(logo, logoX, logoY, dw, dh)
-    logoBottom = logoY + dh
-  } else {
-    ctx.fillStyle = ELSEVIER_ORANGE
-    ctx.textAlign = 'right'
-    ctx.font = '700 26px Georgia, serif'
-    ctx.fillText('ELSEVIER', x + w - padX + 40, y + padY + 52)
-    logoBottom = y + padY + 60
-  }
-
-  // Photo — square (not circular), 50px lower under the logo band
-  const photoSize = 200
-  const photoX = x + (w - photoSize) / 2
-  const photoY = Math.max(logoBottom + 36, y + Math.round(h * 0.28)) + 50
-  coverImage(ctx, photo, photoX, photoY, photoSize, photoSize)
-
-  // Name + role
-  const nameY = photoY + photoSize + 52
-  ctx.textAlign = 'center'
-  ctx.fillStyle = ELSEVIER_NAVY
-  ctx.font = '700 44px "Instrument Sans", system-ui, sans-serif'
-  ctx.fillText(String(name), x + w / 2, nameY)
-
-  ctx.fillStyle = ELSEVIER_MUTED
-  ctx.font = '600 30px "Instrument Sans", system-ui, sans-serif'
-  ctx.fillText(String(role), x + w / 2, nameY + 46)
-}
-
-function drawElsevierBadge(ctx, photo, logo, badge) {
-  const W = 1024
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, W, W)
-
-  drawFace(ctx, photo, logo, badge, faceRect('front'))
-  drawFace(ctx, photo, logo, badge, faceRect('back'))
-}
-
-function configureTexture(tex) {
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.flipY = false
-  tex.anisotropy = 16
-  tex.needsUpdate = true
-  return tex
-}
+const BADGE_FONTS = [
+  '500 30px Newsreader',
+  '500 96px Newsreader',
+  '500 13px "Instrument Sans"',
+  '600 19px "Instrument Sans"',
+  '700 42px "Instrument Sans"',
+]
 
 export function useBadgeTexture(badge) {
-  const [texture, setTexture] = useState(null)
+  const [result, setResult] = useState({ badge: null, texture: null, error: '' })
+  const images = useRef({ photoSrc: null, logoSrc: null, photo: null, logo: null })
 
   useEffect(() => {
     let cancelled = false
-    let tex = null
 
     async function build() {
-      if (!badge?.slackImage) {
-        setTexture(null)
-        return
-      }
-
       try {
+        const logoSrc = badge.companyLogo || null
+        const cached = images.current
         const [photo, logo] = await Promise.all([
-          loadImage(badge.slackImage),
-          loadImage(badge.logoImage || '/elsevier-logo.png').catch(() => null),
+          cached.photoSrc === badge.slackImage ? cached.photo : loadImage(badge.slackImage),
+          !logoSrc ? null : cached.logoSrc === logoSrc ? cached.logo : loadImage(logoSrc).catch(() => null),
         ])
+        // Canvas text never triggers webfont loading, so request the faces the
+        // artwork uses before drawing or the first texture bakes in a fallback.
+        if (document.fonts?.load) {
+          await Promise.all(BADGE_FONTS.map((font) => document.fonts.load(font))).catch(() => {})
+        }
         if (cancelled) return
-        if (document.fonts?.ready) await document.fonts.ready
 
-        const canvas = document.createElement('canvas')
-        canvas.width = 1024
-        canvas.height = 1024
-        drawElsevierBadge(canvas.getContext('2d'), photo, logo, badge)
-
-        tex = configureTexture(new THREE.CanvasTexture(canvas))
-        setTexture(tex)
+        images.current = { photoSrc: badge.slackImage, logoSrc, photo, logo }
+        const texture = new THREE.CanvasTexture(createBadgeCanvas(photo, logo, badge))
+        texture.colorSpace = THREE.SRGBColorSpace
+        texture.flipY = false
+        texture.anisotropy = 16
+        // The print layer is mostly transparent; premultiplied texels keep
+        // mipmapped type edges from picking up dark fringes.
+        texture.premultiplyAlpha = true
+        setResult({ badge, texture, error: '' })
       } catch {
-        if (!cancelled) setTexture(null)
+        if (!cancelled) {
+          setResult((previous) => ({
+            ...previous,
+            badge,
+            error: 'Preview could not update. Try another image or reset your badge.',
+          }))
+        }
       }
     }
 
     build()
-
-    return () => {
-      cancelled = true
-      tex?.dispose()
-    }
+    return () => { cancelled = true }
   }, [badge])
 
-  return texture
+  const texture = result.texture
+  useEffect(() => () => { texture?.dispose() }, [texture])
+
+  const status = result.badge !== badge ? 'loading' : result.error ? 'error' : 'ready'
+  return { texture, status, error: result.badge === badge ? result.error : '' }
 }

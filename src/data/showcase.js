@@ -38,14 +38,16 @@ export const designers = [
 ]
 
 export const featuredBadge = {
-  title: '10 min break',
+  title: 'Hang In There',
   weekLabel: 'AI share-out',
   name: 'Ahmet Bektes',
   role: 'Product Design',
-  department: 'Design',
   badgeId: '042',
   slackImage: '/weeks/current.png',
-  logoImage: '/elsevier-logo.png',
+  companyName: '',
+  companyLogo: '',
+  surface: 'contour',
+  lanyard: 'match',
 }
 
 export const weekProgram = [

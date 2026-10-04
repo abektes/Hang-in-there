@@ -187,10 +187,10 @@ test('refuses to export an unready badge', async () => {
 
 test('prints the week label in the selected surface accent, falling back to the first style', (t) => {
   const { text } = canvasFixture(t)
-  createBadgeCanvas({ width: 400, height: 400 }, null, { name: 'Alex', role: 'Design', surface: 'aurora', weekLabel: 'Demo day' })
+  createBadgeCanvas({ width: 400, height: 400 }, null, { name: 'Alex', role: 'Design', surface: 'volt', weekLabel: 'Demo day' })
   const labels = text.filter(({ value }) => value === 'Demo day')
   assert.equal(labels.length, 2)
-  assert.ok(labels.every(({ fill }) => fill === getSurface('aurora').accent))
+  assert.ok(labels.every(({ fill }) => fill === getSurface('volt').accent))
   assert.equal(getSurface('unknown').id, SURFACES[0].id)
 })
 

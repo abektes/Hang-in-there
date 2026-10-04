@@ -123,38 +123,50 @@ void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
 }
 `,
 
-  // Curtains of northern light: a sharp lower edge fading upward, with fine
-  // vertical rays and a few twinkling stars.
-  aurora: /* glsl */ `
+  // Polished gunmetal. Soft cool facets stay dim so the cream print reads.
+  chromium: /* glsl */ `
 void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
   vec2 face; vec2 p; float back;
   badgeFace(uv, face, p, back);
   float t = uBadgeTime;
-  vec2 seed = back * vec2(3.1, 8.7);
-  base = mix(vec3(0.003, 0.006, 0.02), vec3(0.008, 0.02, 0.045), face.y);
-
-  vec3 light = vec3(0.0);
-  for (int i = 0; i < 3; i++) {
-    float fi = float(i);
-    float edge = 0.3 + fi * 0.2
-      + 0.22 * (badgeFbm(vec2(p.x * 1.8 + fi * 4.0 + seed.x, t * 0.07 + fi)) - 0.5)
-      + 0.035 * sin(p.x * 5.0 + t * 0.4 + fi * 2.0);
-    float d = edge - face.y;
-    float curtain = smoothstep(-0.012, 0.004, d) * exp(-max(d, 0.0) * (6.0 - fi));
-    float sway = badgeFbm(vec2(p.x * 3.0 + seed.y, t * 0.1 + fi)) * 6.0;
-    float rays = 0.45 + 0.55 * badgeNoise(vec2(p.x * 38.0 + sway, d * 2.0 - t * 0.5));
-    vec3 hue = mix(vec3(0.08, 1.0, 0.45), vec3(0.42, 0.12, 0.95), smoothstep(0.0, 0.28, d));
-    light += hue * curtain * rays * (0.55 - fi * 0.12);
-  }
-
-  vec2 cell = floor(p * 220.0);
-  float star = step(0.9975, badgeHash(cell + seed)) * (0.55 + 0.45 * sin(t * 3.0 + badgeHash(cell) * 40.0));
-
+  vec2 q = p * 1.25 + back * vec2(1.8, 4.2);
+  vec2 warp = vec2(badgeFbm(q + vec2(t * 0.03, 0.0)), badgeFbm(q + vec2(2.7, -t * 0.025)));
+  float h = badgeFbm(q + warp * 1.8);
   float calm = badgeCalm(face, back);
-  light *= 1.0 - 0.7 * calm;
-  base *= 1.0 - 0.15 * calm;
-  base += light * 0.22;
-  glow = light * (0.3 + uBadgeEnergy * 0.9) + vec3(star) * 0.5 * (1.0 - calm);
+  float open = 1.0 - 0.88 * calm;
+  float sheen = pow(smoothstep(0.28, 0.82, h), 1.4) * open;
+  float lip = pow(smoothstep(0.62, 0.9, h), 3.0) * open;
+
+  vec3 ink = vec3(0.014, 0.016, 0.022);
+  vec3 steel = vec3(0.18, 0.2, 0.24);
+  vec3 blue = vec3(0.42, 0.55, 0.7);
+  base = mix(ink, steel, sheen * 0.62);
+  base *= 1.0 - 0.3 * calm;
+  glow = blue * lip * (0.08 + uBadgeEnergy * 0.28);
+}
+`,
+
+  // Same polished folds, charged green. The stock stays dark and the light
+  // ducks the type.
+  volt: /* glsl */ `
+void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
+  vec2 face; vec2 p; float back;
+  badgeFace(uv, face, p, back);
+  float t = uBadgeTime;
+  vec2 q = p * 1.25 + back * vec2(3.4, 1.1);
+  vec2 warp = vec2(badgeFbm(q + vec2(t * 0.045, 0.2)), badgeFbm(q + vec2(1.4, -t * 0.04)));
+  float h = badgeFbm(q + warp * 1.7);
+  float calm = badgeCalm(face, back);
+  float open = 1.0 - 0.9 * calm;
+  float sheen = pow(smoothstep(0.34, 0.86, h), 1.5) * open;
+  float charge = pow(0.5 + 0.5 * sin(h * 7.0 - t * 1.3), 5.0) * open;
+
+  vec3 ink = vec3(0.008, 0.018, 0.011);
+  vec3 leaf = vec3(0.05, 0.16, 0.08);
+  vec3 neon = vec3(0.15, 1.0, 0.4);
+  base = mix(ink, leaf, sheen * 0.55);
+  base *= 1.0 - 0.32 * calm;
+  glow = neon * charge * (0.18 + uBadgeEnergy * 0.7) + neon * sheen * 0.05;
 }
 `,
 
@@ -273,6 +285,89 @@ void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
   float grain = (badgeCorner(floor(uv * 4096.0) + floor(fract(t * 0.5) * 97.0)) - 0.5) * 0.012;
   base = color + grain;
   glow = color * (0.06 + uBadgeEnergy * 0.35);
+}
+`,
+
+  // Expanding rings from a drifting drop, teal on deep water.
+  ripple: /* glsl */ `
+void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
+  vec2 face; vec2 p; float back;
+  badgeFace(uv, face, p, back);
+  float t = uBadgeTime;
+  vec2 center = vec2(0.36 + 0.08 * sin(t * 0.17), 0.44 + 0.06 * cos(t * 0.13)) + back * vec2(0.14, -0.12);
+  float dist = length(p - center);
+  float rings = badgeLine(dist * 26.0 - t * 1.35, 1.15);
+  float calm = badgeCalm(face, back);
+  rings *= 1.0 - 0.8 * calm;
+  const vec3 tide = vec3(0.05, 0.85, 0.75);
+  base = mix(vec3(0.004, 0.012, 0.016), vec3(0.012, 0.032, 0.038), face.y);
+  base *= 1.0 - 0.18 * calm;
+  base = mix(base, tide * 0.42, rings * 0.8);
+  float splash = exp(-16.0 * dist) * (0.35 + 0.65 * sin(t * 2.1));
+  glow = tide * (rings * (0.12 + uBadgeEnergy * 0.55) + splash * 0.22 * (1.0 - calm));
+}
+`,
+
+  // Drafting grid: fine squares, heavier axes, a slow drift.
+  blueprint: /* glsl */ `
+void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
+  vec2 face; vec2 p; float back;
+  badgeFace(uv, face, p, back);
+  float t = uBadgeTime;
+  vec2 drift = p + vec2(t * 0.012, -t * 0.008) + back * vec2(0.22, 0.35);
+  float minor = max(badgeLine(drift.x * 22.0, 0.7), badgeLine(drift.y * 22.0, 0.7));
+  float major = max(badgeLine(drift.x * 5.5, 1.45), badgeLine(drift.y * 5.5, 1.45));
+  float calm = badgeCalm(face, back);
+  minor *= 1.0 - 0.85 * calm;
+  major *= 1.0 - 0.7 * calm;
+  const vec3 cyan = vec3(0.18, 0.62, 1.0);
+  base = vec3(0.01, 0.028, 0.065);
+  base *= 1.0 - 0.2 * calm;
+  base = mix(base, cyan * 0.28, minor * 0.55);
+  base = mix(base, cyan * 0.55, major * 0.75);
+  glow = cyan * major * (0.08 + uBadgeEnergy * 0.42);
+}
+`,
+
+  // Dark grey stone with pale veins. The field stays dim so the cream print reads.
+  marble: /* glsl */ `
+void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
+  vec2 face; vec2 p; float back;
+  badgeFace(uv, face, p, back);
+  float t = uBadgeTime;
+  vec2 q = p * 2.2 + back * vec2(2.6, 1.2) + vec2(t * 0.01, -t * 0.006);
+  float n = badgeFbm(q + badgeFbm(q * 1.7) * 1.15);
+  float vein = pow(abs(sin((n - 0.45) * 20.0)), 16.0);
+  float hair = pow(abs(sin(badgeFbm(q * 2.6 + 6.2) * 28.0 + t * 0.05)), 22.0);
+  float calm = badgeCalm(face, back);
+  float marks = clamp(vein * 0.7 + hair * 0.4, 0.0, 1.0) * (1.0 - 0.8 * calm);
+
+  vec3 slate = vec3(0.04, 0.039, 0.038);
+  vec3 cloud = vec3(0.08, 0.078, 0.074);
+  vec3 veinInk = vec3(0.32, 0.31, 0.29);
+  vec3 stone = mix(slate, cloud, smoothstep(0.35, 0.8, n));
+  stone = mix(stone, veinInk, marks);
+  stone *= 1.0 - 0.28 * calm;
+  base = stone;
+  glow = veinInk * marks * (0.04 + uBadgeEnergy * 0.16);
+}
+`,
+
+  // Soft spectral wash with a thin edge that travels along the diagonal.
+  prism: /* glsl */ `
+void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
+  vec2 face; vec2 p; float back;
+  badgeFace(uv, face, p, back);
+  float t = uBadgeTime;
+  float slant = p.x * 0.65 + p.y * 1.05 + back * 0.45 + 0.07 * badgeFbm(p * 2.8 + t * 0.04);
+  float travel = slant * 2.6 - t * 0.05;
+  vec3 hue = 0.5 + 0.5 * cos(6.2831 * (fract(travel) + vec3(0.0, 0.33, 0.67)));
+  float edge = badgeLine(travel, 1.25);
+  float calm = badgeCalm(face, back);
+  hue *= 1.0 - 0.7 * calm;
+  edge *= 1.0 - 0.65 * calm;
+  base = vec3(0.012, 0.008, 0.022) + hue * 0.14;
+  glow = hue * edge * (0.18 + uBadgeEnergy * 0.55);
 }
 `,
 }

@@ -23,7 +23,7 @@ test('round-trips edited text, looks, and uploaded images through the link hash'
     companyName: 'Acme',
     slackImage: PHOTO,
     companyLogo: 'data:image/png;base64,iVBORw0KGgo=',
-    surface: 'aurora',
+    surface: 'chromium',
     lanyard: 'white',
   }
   const url = embedUrl('https://badges.example/', badge)

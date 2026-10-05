@@ -288,13 +288,14 @@ void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
 }
 `,
 
-  // Expanding rings from a drifting drop, teal on deep water.
+  // Expanding rings from the portrait center, teal on deep water.
   ripple: /* glsl */ `
 void badgeSurface(vec2 uv, out vec3 base, out vec3 glow) {
   vec2 face; vec2 p; float back;
   badgeFace(uv, face, p, back);
   float t = uBadgeTime;
-  vec2 center = vec2(0.36 + 0.08 * sin(t * 0.17), 0.44 + 0.06 * cos(t * 0.13)) + back * vec2(0.14, -0.12);
+  // Portrait is 268px at (DESIGN_W/2, 176+134) → face (0.5, 0.401) → p.
+  vec2 center = vec2(0.358, 0.401);
   float dist = length(p - center);
   float rings = badgeLine(dist * 26.0 - t * 1.35, 1.15);
   float calm = badgeCalm(face, back);
